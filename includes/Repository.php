@@ -54,12 +54,17 @@ final class Repository {
     public function upcoming(): bool { foreach ($this->all() as $r) if ($r['enabled'] && $r['end']>time()) return true; return false; }
     private static function decode(array $r): array {
         $c = json_decode($r['conditions'], true); $c = is_array($c)?$c:[];
-        return array_merge(['profiles'=>[], 'brands'=>[], 'categories'=>[], 'exclude_products'=>[], 'exclude_categories'=>[], 'exclude_brands'=>[], 'coupons'=>false, 'brand_taxonomy'=>'product_brand'], $c, ['id'=>(int)$r['id'],'name'=>$r['name'],'rate'=>(float)$r['rate'],'enabled'=>(bool)$r['enabled'],'start'=>(int)$r['starts'],'end'=>(int)$r['ends'],'updated'=>(int)$r['updated']]);
+        // Up to 1.0.x a campaign was one percentage rule: rate column + brands/categories.
+        if (!isset($c['rules']) || !is_array($c['rules'])) $c['rules']=[['type'=>'percent','value'=>(float)$r['rate'],'brands'=>$c['brands']??[],'categories'=>$c['categories']??[]]];
+        $c['rules']=array_values(array_map(static fn($x)=>array_merge(['type'=>'percent','value'=>0.0,'brands'=>[],'categories'=>[],'products'=>[],'priority'=>0],is_array($x)?$x:[]),$c['rules']));
+        unset($c['brands'],$c['categories'],$c['coupons']);
+        return array_merge(['profiles'=>[], 'on_sale'=>'exclude', 'exclude_products'=>[], 'exclude_categories'=>[], 'exclude_brands'=>[], 'brand_taxonomy'=>'product_brand'], $c, ['id'=>(int)$r['id'],'name'=>$r['name'],'enabled'=>(bool)$r['enabled'],'start'=>(int)$r['starts'],'end'=>(int)$r['ends'],'updated'=>(int)$r['updated']]);
     }
     public function save(array $r): int {
         global $wpdb;
-        $c = array_intersect_key($r,array_flip(['profiles','brands','categories','exclude_products','exclude_categories','exclude_brands','coupons','brand_taxonomy']));
-        $data=['name'=>$r['name'],'rate'=>$r['rate'],'enabled'=>(int)$r['enabled'],'starts'=>$r['start'],'ends'=>$r['end'],'conditions'=>wp_json_encode($c),'updated'=>time()];
+        $c = array_intersect_key($r,array_flip(['profiles','on_sale','rules','exclude_products','exclude_categories','exclude_brands','brand_taxonomy']));
+        // rate is a legacy column: rules live in conditions. 0 % is inert if the plugin is downgraded.
+        $data=['name'=>$r['name'],'rate'=>0,'enabled'=>(int)$r['enabled'],'starts'=>$r['start'],'ends'=>$r['end'],'conditions'=>wp_json_encode($c),'updated'=>time()];
         $id=(int)($r['id']??0);
         if ($id) { if (!$this->get($id) || $wpdb->update(self::table(),$data,['id'=>$id])===false) throw new \RuntimeException('Enregistrement impossible.'); }
         else { $data['created']=time(); if ($wpdb->insert(self::table(),$data)===false) throw new \RuntimeException('Enregistrement impossible.'); $id=(int)$wpdb->insert_id; }
@@ -108,5 +113,8 @@ final class Repository {
         $repo=new self(); foreach($repo->all() as $r) self::reschedule($r['id'],null);
         if (function_exists('as_unschedule_all_actions')) as_unschedule_all_actions('g2rd_promo_reconcile',[],'g2rd-promotions');
         wp_clear_scheduled_hook('g2rd_promo_reconcile'); self::invalidate();
+        // After invalidate(): its listener may have queued a sale index build.
+        if (function_exists('as_unschedule_all_actions')) as_unschedule_all_actions(Pricing::BUILD,[],'g2rd-promotions');
+        wp_clear_scheduled_hook(Pricing::BUILD);
     }
 }

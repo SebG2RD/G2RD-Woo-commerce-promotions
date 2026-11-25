@@ -67,26 +67,49 @@
     })
   );
 
-  root.querySelectorAll('[data-target]').forEach((input) =>
-    input.addEventListener('input', () => {
-      const select = document.getElementById(input.dataset.target);
-      if (!select) return;
-      const term = input.value.toLocaleLowerCase();
-      [...select.options].forEach((opt) => {
-        opt.hidden = !opt.selected && !opt.textContent.toLocaleLowerCase().includes(term);
-      });
-    })
-  );
-
-  root.querySelectorAll('[data-all]').forEach((check) => {
-    const select = document.getElementById(check.dataset.all);
+  // Delegated: rules added later have their own term search fields.
+  root.addEventListener('input', (event) => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || !input.dataset.target) return;
+    const select = document.getElementById(input.dataset.target);
     if (!select) return;
-    const sync = () => {
-      select.disabled = check.checked;
-    };
-    check.addEventListener('change', sync);
-    sync();
+    const term = input.value.toLocaleLowerCase();
+    [...select.options].forEach((opt) => {
+      opt.hidden = !opt.selected && !opt.textContent.toLocaleLowerCase().includes(term);
+    });
   });
+
+  const rules = root.querySelector('#g2rd-promo-rules');
+  const template = root.querySelector('#g2rd-promo-rule-template');
+  const addRule = root.querySelector('#g2rd-promo-add-rule');
+  if (rules && template && addRule) {
+    let next = Date.now();
+    const renumber = () =>
+      rules.querySelectorAll('.g2rd-promo-rule-num').forEach((num, i) => {
+        num.textContent = String(i + 1);
+      });
+    addRule.addEventListener('click', () => {
+      const index = String(next++);
+      const fragment = template.content.cloneNode(true);
+      fragment.querySelectorAll('[name], [id], [for], [data-target]').forEach((el) => {
+        ['name', 'id', 'for', 'data-target'].forEach((attr) => {
+          if (el.hasAttribute(attr)) el.setAttribute(attr, el.getAttribute(attr).replaceAll('__i__', index));
+        });
+      });
+      rules.append(fragment);
+      renumber();
+      rules.lastElementChild?.querySelector('select, input')?.focus();
+      rules.closest('form')?.dispatchEvent(new Event('change'));
+    });
+    rules.addEventListener('click', (event) => {
+      const button = event.target instanceof Element ? event.target.closest('.g2rd-promo-rule-remove') : null;
+      if (!button) return;
+      if (rules.querySelectorAll('.g2rd-promo-rule').length <= 1) return;
+      button.closest('.g2rd-promo-rule')?.remove();
+      renumber();
+      rules.closest('form')?.dispatchEvent(new Event('change'));
+    });
+  }
 
   const search = root.querySelector('#g2rd-campaign-search');
   const status = root.querySelector('#g2rd-campaign-status');
@@ -102,26 +125,70 @@
   }
 
   const preview = root.querySelector('#g2rd-promo-preview');
+  const countButton = root.querySelector('#g2rd-promo-count');
   const result = root.querySelector('#g2rd-promo-preview-result');
   if (!preview || !result) return;
   const form = preview.closest('form');
   let generation = 0;
-  const load = async (page = 1) => {
-    if (!form.reportValidity()) return;
-    const run = ++generation;
-    preview.disabled = true;
-    result.replaceChildren(make('p', G2RDPromo.working));
-    result.setAttribute('aria-busy', 'true');
+  const request = async (page, mode) => {
     const data = new FormData(form);
     data.set('action', 'g2rd_promo_preview');
     data.set('nonce', G2RDPromo.nonce);
     data.set('preview_page', page);
+    data.set('preview_mode', mode);
+    const response = await fetch(G2RDPromo.ajax, { method: 'POST', credentials: 'same-origin', body: data });
+    const json = await response.json();
+    if (!json.success) throw new Error(json.data?.message || G2RDPromo.error);
+    return json.data;
+  };
+  const busy = (on) => {
+    preview.disabled = on;
+    if (countButton) countButton.disabled = on;
+    if (on) result.setAttribute('aria-busy', 'true');
+    else result.removeAttribute('aria-busy');
+  };
+  /** Scans the whole catalogue page by page; each request stays short. */
+  const countAll = async () => {
+    if (!form.reportValidity()) return;
+    const run = ++generation;
+    busy(true);
+    const status = make('p', G2RDPromo.working);
+    result.replaceChildren(status);
     try {
-      const response = await fetch(G2RDPromo.ajax, { method: 'POST', credentials: 'same-origin', body: data });
-      const json = await response.json();
+      let totals = [];
+      let page = 1;
+      let pages = 1;
+      let candidates = 0;
+      do {
+        const d = await request(page, 'count');
+        if (run !== generation) return;
+        totals = d.counts.map((n, i) => n + (totals[i] || 0));
+        pages = d.pages;
+        candidates = d.candidates;
+        status.textContent = `Comptage… ${page} / ${pages}`;
+        page++;
+      } while (page <= pages);
+      const list = make('ul');
+      totals.forEach((n, i) => list.append(make('li', `Règle ${i + 1} : ${n} article(s)`)));
+      const sum = totals.reduce((a, b) => a + b, 0);
+      result.replaceChildren(
+        make('p', `${sum} article(s) concerné(s) sur ${candidates} produit(s) candidat(s), premier profil ciblé.`),
+        list
+      );
+    } catch (error) {
+      if (run === generation) result.replaceChildren(make('p', error.message || G2RDPromo.error, 'g2rd-promo-hint'));
+    } finally {
+      if (run === generation) busy(false);
+    }
+  };
+  const load = async (page = 1) => {
+    if (!form.reportValidity()) return;
+    const run = ++generation;
+    busy(true);
+    result.replaceChildren(make('p', G2RDPromo.working));
+    try {
+      const d = await request(page, 'rows');
       if (run !== generation) return;
-      if (!json.success) throw new Error(json.data?.message || G2RDPromo.error);
-      const d = json.data;
       result.replaceChildren(
         make(
           'p',
@@ -131,7 +198,7 @@
       if (!d.rows.length) result.append(make('p', 'Aucun résultat éligible sur cette page.'));
       for (const row of d.rows) {
         const line = make('div', undefined, 'g2rd-promo-preview-row');
-        line.append(make('strong', row.product), make('small', row.profile));
+        line.append(make('strong', row.product), make('small', `${row.profile} · règle ${row.rule}`));
         const prices = make('div');
         prices.append(make('del', `${row.base} ${row.currency}`), make('ins', `${row.price} ${row.currency}`));
         line.append(prices);
@@ -153,17 +220,14 @@
     } catch (error) {
       if (run === generation) result.replaceChildren(make('p', error.message || G2RDPromo.error, 'g2rd-promo-hint'));
     } finally {
-      if (run === generation) {
-        preview.disabled = false;
-        result.removeAttribute('aria-busy');
-      }
+      if (run === generation) busy(false);
     }
   };
   preview.addEventListener('click', () => load());
+  countButton?.addEventListener('click', countAll);
   form.addEventListener('change', () => {
     generation++;
-    preview.disabled = false;
-    result.removeAttribute('aria-busy');
+    busy(false);
     result.replaceChildren(make('p', 'Paramètres modifiés. Recalcule la prévisualisation.', 'g2rd-promo-hint'));
   });
 })();

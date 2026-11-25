@@ -463,6 +463,8 @@ body.g2rd-promo-screen #wpcontent {
 .g2rd-promo-preview-row ins { font-weight: 600; text-decoration: none; color: var(--g2rd-success-text); }
 .g2rd-promo-preview-row del { color: var(--g2rd-muted); }
 #g2rd-promo-preview-result { margin-top: 12px; }
+.g2rd-promo-rule { border: 1px solid var(--g2rd-line-2); border-radius: var(--g2rd-r); padding: 14px 16px 16px; margin: 0 0 14px; background: var(--g2rd-well); }
+.g2rd-promo-rule legend { font-weight: 650; padding: 0 6px; color: var(--g2rd-ink); }
 .g2rd-promo-preview-pagination { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .g2rd-promo [hidden] { display: none !important; }
 

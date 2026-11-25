@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.0 — conformité au cahier des charges Drakkar
+
+- Plusieurs règles par campagne ; types pourcentage, montant déduit et prix fixe, calculés sur le prix normal.
+- Sélection d'articles spécifiques ; règle générale (sans label ni catégorie) pour tous les autres articles.
+- Priorité par spécificité (articles > label + catégorie > label ou catégorie > générale) et priorité manuelle, au lieu de « la plus forte remise ».
+- Option par campagne : exclure ou inclure les articles déjà en promotion. Les dates des promos WooCommerce sont respectées.
+- Coupons : seuls les codes « Utilisation individuelle uniquement » sont refusés à côté d'un article en promotion ; l'interrupteur par campagne est supprimé.
+- Liste « On sale » / section Discount calculée en arrière-plan (Action Scheduler) au lieu de parcourir le catalogue à chaque visite.
+- Mode cache sécurisé limité aux campagnes actives (plus aux campagnes programmées).
+- Prévisualisation : règle appliquée par article et comptage exact par règle sur tout le catalogue.
+- Les campagnes 1.0.x sont lues comme une règle unique, sans migration.
+
 ## 1.0.4 — padding bandeau admin
 
 - Marge interne du bandeau Verre (titre, CTA, tuiles) pour éviter le collage aux bords.

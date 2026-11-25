@@ -4,16 +4,18 @@ Tags: woocommerce, promotion, wholesale, discount, brands
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.0.4
+Stable tag: 1.1.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 Campagnes automatiques par label, catégorie, profil client et période. Version initiale à qualifier sur une boutique de recette.
 
 == Description ==
-* Plusieurs campagnes simultanées, remises en pourcentage, dates et heures, activation, duplication, suppression.
+* Plusieurs campagnes simultanées, plusieurs règles par campagne : pourcentage, montant déduit ou prix fixe ; dates et heures, activation, duplication, suppression.
+* Règles par label, catégorie, combinaison des deux ou articles spécifiques, plus une règle générale. La règle la plus précise l'emporte, priorité manuelle possible, jamais de cumul.
 * Profils visiteurs, particuliers connectés et Wholesale. Source des prix professionnels à configurer explicitement.
-* Exclusions par produit, label, catégorie. Les prix promo WooCommerce individuels restent protégés, même programmés.
+* Exclusions par produit, label, catégorie. Articles déjà en promotion exclus ou inclus au choix par campagne ; prix promo d'origine rétabli à la fin.
+* Seuls les codes promo « Utilisation individuelle uniquement » sont refusés à côté d'un article en promotion.
 * Prix dynamiques, badges natifs, variations, panier, commande et métadonnées de facture.
 * Aperçu serveur paginé, tableau de bord, calendrier chronologique, statistiques, export CSV et journal.
 * Action Scheduler / WP-Cron, purge WP Rocket, cache de variations séparé par profil.
@@ -29,6 +31,14 @@ Campagnes automatiques par label, catégorie, profil client et période. Version
 Les tests exécutés sont des tests PHP autonomes sur des APIs simulées, pas des tests sur une installation WordPress/WooCommerce réelle. La compatibilité avec les extensions Wholesale, factures PDF, thème, caches et paiements express de Drakkar reste à valider. Les tarifs B2B dynamiques par quantité, groupe ou utilisateur exigent un adaptateur. Le tri et le filtre de prix reposant sur les tables de recherche WooCommerce ne sont pas adaptés aux tarifs dynamiques dans cette version. L'historique réglementaire des 30 jours n'est pas inclus. Interface française, sans traduction anglaise complète. Le mode natif intégré à la console du thème n'est pas implémenté : interface autonome inspirée du Connector.
 
 == Changelog ==
+= 1.1.0 =
+* Plusieurs règles par campagne : pourcentage, montant déduit, prix fixe, articles spécifiques et règle générale.
+* Priorité par spécificité et priorité manuelle, au lieu de la plus forte remise.
+* Option « exclure / inclure les articles déjà en promotion » ; dates des promos WooCommerce respectées.
+* Coupons : seuls les codes à usage individuel sont refusés à côté d'un article en promotion.
+* Liste des produits en promotion calculée en arrière-plan ; cache coupé seulement pendant les campagnes actives.
+* Prévisualisation : règle appliquée et comptage exact par règle. Campagnes 1.0.x reprises sans migration.
+
 = 1.0.4 =
 * Padding du bandeau admin : contenu décollé des bords.
 

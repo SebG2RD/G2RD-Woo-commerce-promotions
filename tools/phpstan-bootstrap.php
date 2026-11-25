@@ -98,6 +98,21 @@ if (!function_exists('get_woocommerce_currency')) {
 		return 'EUR';
 	}
 }
+if (!function_exists('get_woocommerce_currency_symbol')) {
+	function get_woocommerce_currency_symbol($currency = '') {
+		return '€';
+	}
+}
+if (!function_exists('as_enqueue_async_action')) {
+	function as_enqueue_async_action($hook, $args = [], $group = '', $unique = false) {
+		return 0;
+	}
+}
+if (!class_exists('WC_Coupon', false)) {
+	class WC_Coupon {
+		public function get_individual_use($context = 'view') { return false; }
+	}
+}
 if (!function_exists('as_unschedule_all_actions')) {
 	function as_unschedule_all_actions($hook, $args = [], $group = '') {}
 }
@@ -139,6 +154,7 @@ if (!class_exists('WC_Product', false)) {
 		public function get_name() { return ''; }
 		public function get_visible_children() { return []; }
 		public function get_price_suffix($price = '', $qty = 1) { return ''; }
+		public function is_on_sale($context = 'view') { return false; }
 	}
 }
 if (!class_exists('WC_Order', false)) {
