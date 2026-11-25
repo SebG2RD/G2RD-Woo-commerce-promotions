@@ -1,0 +1,20 @@
+includes:
+	- vendor/szepeviktor/phpstan-wordpress/extension.neon
+
+parameters:
+	level: 2
+	paths:
+		- g2rd-woocommerce-promotions.php
+		- uninstall.php
+		- includes
+	excludePaths:
+		- tests/*
+		- docs/*
+		- .ci-refs/*
+	bootstrapFiles:
+		- tools/phpstan-bootstrap.php
+	reportUnmatchedIgnoredErrors: false
+	ignoreErrors:
+		# WeakMap générique PHPStan + objets panier WC dynamiques.
+		- '#Property G2RD\\Promotions\\Pricing::\$cart_prices#'
+		- '#Offset .+ does not exist on object#'

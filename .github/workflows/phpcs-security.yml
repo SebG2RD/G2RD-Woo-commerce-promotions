@@ -1,0 +1,116 @@
+name: PHPCS WordPress + Security Audit
+
+# Standards WordPress (informatifs) + SAST OWASP (bloquant) + PHPCompatibility
+# (bloquant). Adapté de g2rd-facturation / g2rd-connector / g2rd-wpjm-geo :
+# outillage via composer.lock du dépôt.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  phpcs:
+    name: PHPCS WordPress Standards
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          ini-values: memory_limit=1G
+          coverage: none
+          tools: cs2pr, composer:v2
+
+      - name: Install dependencies (composer.lock)
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Vérifier les standards installés
+        run: vendor/bin/phpcs -i
+
+      - name: PHPCS WordPress
+        id: phpcs-wp
+        continue-on-error: true
+        run: |
+          vendor/bin/phpcs \
+            --standard=phpcs.xml.dist \
+            --report-full \
+            --report-checkstyle=./phpcs-wp-report.xml \
+            --colors -p
+
+      - name: Annotations WordPress
+        if: ${{ always() && steps.phpcs-wp.outcome == 'failure' }}
+        continue-on-error: true
+        run: cs2pr ./phpcs-wp-report.xml
+
+      - name: PHPCS Security Audit
+        id: phpcs-sec
+        run: |
+          vendor/bin/phpcs \
+            --standard=phpcs-security.xml \
+            --extensions=php \
+            --report-full \
+            --report-checkstyle=./phpcs-security-report.xml \
+            --runtime-set ParanoiaMode 0 \
+            --colors -p
+
+      - name: Annotations Security
+        if: ${{ always() && steps.phpcs-sec.outcome == 'failure' }}
+        continue-on-error: true
+        run: cs2pr ./phpcs-security-report.xml
+
+      - name: PHPCompatibility
+        id: phpcompat
+        run: |
+          vendor/bin/phpcs \
+            --standard=PHPCompatibilityWP \
+            --extensions=php \
+            --runtime-set testVersion 8.1- \
+            --report-full \
+            --report-checkstyle=./phpcompat-report.xml \
+            --colors -p \
+            g2rd-woocommerce-promotions.php uninstall.php includes
+
+      - name: Annotations PHPCompatibility
+        if: ${{ always() && steps.phpcompat.outcome == 'failure' }}
+        continue-on-error: true
+        run: cs2pr ./phpcompat-report.xml
+
+      - name: Résumé des résultats
+        if: always()
+        env:
+          WP_OUTCOME: ${{ steps.phpcs-wp.outcome }}
+          SEC_OUTCOME: ${{ steps.phpcs-sec.outcome }}
+          COMPAT_OUTCOME: ${{ steps.phpcompat.outcome }}
+        run: |
+          {
+            echo "## Résultats PHPCS"
+            echo "- WordPress Standards (informatif) : ${WP_OUTCOME}"
+            echo "- Security Audit (bloquant) : ${SEC_OUTCOME}"
+            echo "- PHPCompatibility 8.1+ (bloquant) : ${COMPAT_OUTCOME}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: phpcs-reports
+          path: |
+            phpcs-wp-report.xml
+            phpcs-security-report.xml
+            phpcompat-report.xml
+          retention-days: 30

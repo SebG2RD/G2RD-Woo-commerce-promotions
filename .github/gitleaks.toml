@@ -1,0 +1,16 @@
+# Configuration gitleaks, lue par .github/workflows/secrets.yml.
+#
+# Passage local :
+#   gitleaks git --redact --verbose --no-color --exit-code 1 --config .github/gitleaks.toml .
+#
+# Jamais d'exception pour une vraie valeur secrète : une clé commitée se révoque.
+
+[extend]
+useDefault = true
+
+# Text domain du plugin pris pour une clé par generic-api-key.
+[[allowlists]]
+description = "Text domain g2rd-woocommerce-promotions pris pour une clé (generic-api-key)"
+targetRules = ["generic-api-key"]
+regexTarget = "secret"
+regexes = ['''^g2rd-woocommerce-promotions$''']

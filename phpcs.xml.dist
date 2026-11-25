@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<ruleset name="G2RD WooCommerce Promotions">
+	<description>WordPress Coding Standards pour G2RD WooCommerce Promotions (PHP 8.1+).</description>
+
+	<file>./g2rd-woocommerce-promotions.php</file>
+	<file>./uninstall.php</file>
+	<file>./includes</file>
+
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/tests/*</exclude-pattern>
+	<exclude-pattern>*/docs/*</exclude-pattern>
+	<exclude-pattern>*/.ci-refs/*</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="ps"/>
+	<arg name="basepath" value="."/>
+	<arg name="parallel" value="8"/>
+
+	<rule ref="WordPress-Core">
+		<!-- Classes nommées Pricing.php (pas class-pricing.php), comme les autres plugins G2RD. -->
+		<exclude name="WordPress.Files.FileName"/>
+		<!-- PHP 8.1 : tableaux courts autorisés. -->
+		<exclude name="Universal.Arrays.DisallowShortArraySyntax"/>
+		<exclude name="Generic.Arrays.DisallowShortArraySyntax"/>
+		<!-- Alignement multi-lignes : churn sans valeur. -->
+		<exclude name="WordPress.Arrays.MultipleStatementAlignment"/>
+		<exclude name="Generic.Formatting.MultipleStatementAlignment"/>
+		<!-- Méthodes / propriétés camelCase (namespace G2RD\Promotions). -->
+		<exclude name="WordPress.NamingConventions.ValidFunctionName.MethodNameInvalid"/>
+		<exclude name="WordPress.NamingConventions.ValidVariableName"/>
+	</rule>
+
+	<rule ref="WordPress.Security"/>
+	<rule ref="WordPress.WP.AlternativeFunctions.strip_tags_strip_tags">
+		<type>error</type>
+	</rule>
+	<rule ref="WordPress.DB.PreparedSQL"/>
+	<rule ref="WordPress.DB.PreparedSQLPlaceholders"/>
+
+	<config name="testVersion" value="8.1-"/>
+	<config name="minimum_supported_wp_version" value="6.6"/>
+	<config name="text_domain" value="g2rd-woocommerce-promotions"/>
+</ruleset>

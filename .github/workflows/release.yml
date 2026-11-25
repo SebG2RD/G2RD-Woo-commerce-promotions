@@ -1,0 +1,254 @@
+name: Release
+
+# Tag vX.Y.Z (auto-tag.yml) ou déclenchement manuel.
+# Deux jobs au moindre privilège (modèle g2rd-wpjm-geo) :
+# - build (lecture) : qualité, ZIP, activation WP+WooCommerce, artefact
+# - publish (écriture) : empreinte + GitHub Release
+# Puis sbom.yml attache l'inventaire. Pas de signature Ed25519 ni webhook
+# g2rd.fr (pas d'updater intégré dans cette version).
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version à publier (ex. 1.0.0, doit matcher les fichiers du plugin)'
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build & verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+
+    services:
+      mysql:
+        image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wp_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Déterminer la version
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [[ ! "$DISPATCH_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::Version saisie invalide : attendu x.y.z"
+              exit 1
+            fi
+            VERSION="$DISPATCH_VERSION"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Vérifier l'alignement des versions
+        env:
+          PLUGIN_VERSION: ${{ steps.version.outputs.version }}
+        run: bash tools/verify-release-version.sh "$PLUGIN_VERSION"
+
+      - name: Vérifier cohérence tag Git ↔ version (push tag uniquement)
+        if: github.event_name == 'push'
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if [ "${GITHUB_REF_NAME}" != "${RELEASE_TAG}" ]; then
+            echo "::error::Tag poussé (${GITHUB_REF_NAME}) ≠ version dérivée (${RELEASE_TAG})"
+            exit 1
+          fi
+
+      - name: Setup PHP 8.2 + WP-CLI
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          extensions: mbstring, mysqli, zip
+          ini-values: memory_limit=1G
+          tools: composer:v2, wp-cli
+          coverage: none
+
+      - name: Contrôles qualité (tests, sécurité, PHPStan, JS)
+        run: |
+          composer validate --strict --no-check-publish
+          composer install --no-interaction --no-progress --prefer-dist
+          composer run ci
+          composer audit --locked --abandoned=report
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+
+      - name: Créer le ZIP
+        env:
+          PLUGIN_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          php tools/build-zip.php
+          mkdir -p dist
+          mv g2rd-woocommerce-promotions.zip "dist/g2rd-woocommerce-promotions-${PLUGIN_VERSION}.zip"
+          cd dist
+          sha256sum "g2rd-woocommerce-promotions-${PLUGIN_VERSION}.zip" \
+            > "g2rd-woocommerce-promotions-${PLUGIN_VERSION}.zip.sha256"
+          cat "g2rd-woocommerce-promotions-${PLUGIN_VERSION}.zip.sha256"
+
+      - name: Valider le ZIP
+        env:
+          PLUGIN_VERSION: ${{ steps.version.outputs.version }}
+        run: bash tools/verify-plugin-zip.sh "dist/g2rd-woocommerce-promotions-${PLUGIN_VERSION}.zip"
+
+      - name: Test installation WordPress + WooCommerce
+        env:
+          PLUGIN_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          ROOT="$(pwd)"
+          mkdir -p "$ROOT/_wp-e2e"
+          cd "$ROOT/_wp-e2e"
+
+          for i in $(seq 1 60); do
+            if mysql -h 127.0.0.1 -uroot -proot -e "SELECT 1" >/dev/null 2>&1; then
+              echo "MySQL prêt."; break
+            fi
+            [ "$i" -eq 60 ] && { echo "::error::MySQL indisponible"; exit 1; }
+            sleep 2
+          done
+
+          wp core download --force
+          wp config create --dbname=wp_test --dbuser=root --dbpass=root --dbhost=127.0.0.1 --skip-check
+          wp config set WP_DEBUG true --raw
+          wp config set WP_DEBUG_LOG true --raw
+          wp config set WP_DEBUG_DISPLAY false --raw
+          wp core install \
+            --url=http://example.test --title="G2RD Promotions release test" \
+            --admin_user=admin --admin_password='AdminPass!2026' \
+            --admin_email=admin@example.test --skip-email
+          wp plugin install woocommerce --activate
+
+          unzip -q "$ROOT/dist/g2rd-woocommerce-promotions-${PLUGIN_VERSION}.zip" -d wp-content/plugins/
+          wp plugin activate g2rd-woocommerce-promotions
+          ACTIVE="$(wp plugin list --status=active --field=name)"
+          echo "Plugins actifs: $ACTIVE"
+          echo "$ACTIVE" | grep -qx g2rd-woocommerce-promotions
+
+          TABLES="$(wp db query "SHOW TABLES LIKE 'wp_g2rd_promo%'" --skip-column-names)"
+          echo "$TABLES"
+          echo "$TABLES" | grep -q g2rd_promotions
+          echo "$TABLES" | grep -q g2rd_promotion_logs
+
+          SCHEMA="$(wp option get g2rd_promo_schema)"
+          echo "g2rd_promo_schema=${SCHEMA}"
+          [ "$SCHEMA" = "1" ]
+
+          if [ -f wp-content/debug.log ] && grep -E 'PHP (Fatal|Parse)' wp-content/debug.log | grep -q 'plugins/g2rd-woocommerce-promotions'; then
+            grep -E 'plugins/g2rd-woocommerce-promotions' wp-content/debug.log
+            echo "::error::Erreurs PHP fatales du plugin dans debug.log"
+            exit 1
+          fi
+          echo "OK : plugin activé, tables créées, schéma=1"
+
+      - name: Transmettre le ZIP et son empreinte
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-zip
+          path: |
+            dist/g2rd-woocommerce-promotions-${{ steps.version.outputs.version }}.zip
+            dist/g2rd-woocommerce-promotions-${{ steps.version.outputs.version }}.zip.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ needs.build.outputs.tag }}
+    steps:
+      - name: Récupérer l'artefact (sans checkout du dépôt)
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-zip
+          path: dist
+
+      - name: Revérifier l'empreinte SHA-256
+        working-directory: dist
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          ls -la
+          sha256sum -c "g2rd-woocommerce-promotions-${VERSION}.zip.sha256"
+
+      - name: Créer la release GitHub
+        # softprops : même choix que Facturation / Geo (notes + fichiers).
+        # zizmor: ignore[superfluous-actions]
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ needs.build.outputs.tag }}
+          name: 'G2RD WooCommerce Promotions v${{ needs.build.outputs.version }}'
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          body: |
+            ## G2RD WooCommerce Promotions v${{ needs.build.outputs.version }}
+
+            Campagnes promotionnelles par label, catégorie et profil client (visiteur, particulier, Wholesale).
+
+            ### Installation
+            1. Télécharger `g2rd-woocommerce-promotions-${{ needs.build.outputs.version }}.zip`
+            2. Extensions → Ajouter → Téléverser → activer (**WooCommerce requis**)
+            3. WooCommerce → G2RD Promotions → Paramètres (taxonomie labels, Wholesale, caches)
+            4. Tester sur une **boutique de recette** avant toute boutique réelle
+
+            ### Intégrité
+            Empreinte SHA-256 dans `.zip.sha256` :
+            `sha256sum -c g2rd-woocommerce-promotions-${{ needs.build.outputs.version }}.zip.sha256`
+
+            ### Changelog
+            Voir [`readme.txt`](https://github.com/${{ github.repository }}/blob/main/readme.txt).
+          files: |
+            dist/g2rd-woocommerce-promotions-${{ needs.build.outputs.version }}.zip
+            dist/g2rd-woocommerce-promotions-${{ needs.build.outputs.version }}.zip.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sbom:
+    needs: publish
+    permissions:
+      contents: write
+    # zizmor: ignore[self-repository]
+    uses: ./.github/workflows/sbom.yml
+    with:
+      tag: ${{ needs.publish.outputs.tag }}

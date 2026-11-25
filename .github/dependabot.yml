@@ -1,0 +1,29 @@
+version: 2
+
+updates:
+  # Outillage de développement uniquement (aucune dépendance PHP runtime).
+  - package-ecosystem: "composer"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      dev-tooling:
+        patterns:
+          - "phpstan/*"
+          - "squizlabs/*"
+          - "wp-coding-standards/*"
+          - "phpcompatibility/*"
+          - "phpcsstandards/*"
+          - "pheromone/*"
+          - "szepeviktor/*"
+          - "dealerdirect/*"
+
+  # Actions GitHub (SHA épinglés + commentaire de version).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
