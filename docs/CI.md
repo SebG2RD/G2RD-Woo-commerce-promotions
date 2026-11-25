@@ -22,7 +22,7 @@ Pipeline aligné sur les dépôts G2RD (Facturation, Connector, WP Job Manager G
 |---|---|---|
 | `GH_PAT` | Pour les releases auto | PAT Contents:write, limité à ce dépôt (auto-tag) |
 
-Sans `GH_PAT`, les commits `version:` échoueront volontairement (le `GITHUB_TOKEN` ne peut pas re-déclencher `release.yml`).
+Sans `GH_PAT`, un commit `version:` échoue **seulement** si le tag `vX.Y.Z` n’existe pas encore (le `GITHUB_TOKEN` ne peut pas re-déclencher `release.yml`). Si le tag a déjà été poussé à la main, Auto-tag réussit sans secret.
 
 ## Commandes locales
 
