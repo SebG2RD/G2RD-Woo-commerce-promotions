@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.3 — version de déploiement
+
+- ZIP de référence pour les boutiques : notifications de mise à jour GitHub, admin Verre, onglets sans reload.
+- Inclut le correctif Plugin Check post-1.0.2.
+
 ## 1.0.2 — admin Verre + onglets sans reload
 
 - Shell admin aligné Facturation / Geo (bandeau navy, tuiles, tokens `--g2rd-*`).
