@@ -86,7 +86,7 @@ body.g2rd-promo-screen #wpcontent {
 .g2rd-promo-band {
 	position: absolute;
 	inset: 0 0 auto 0;
-	height: 220px;
+	height: 248px;
 	border-radius: 0 0 var(--g2rd-r-lg) var(--g2rd-r-lg);
 	background: var(--g2rd-band);
 	box-shadow:
@@ -114,7 +114,12 @@ body.g2rd-promo-screen #wpcontent {
 	background: radial-gradient(circle, rgba(163, 230, 53, 0.22), transparent 70%);
 }
 
-.g2rd-promo-inner { position: relative; z-index: 1; padding-top: 18px; }
+/* Padding interne : décolle titre, CTA et tuiles des bords du bandeau. */
+.g2rd-promo-inner {
+	position: relative;
+	z-index: 1;
+	padding: 22px 24px 0;
+}
 
 .g2rd-promo-topbar {
 	display: flex;
@@ -199,7 +204,7 @@ body.g2rd-promo-screen #wpcontent {
 	display: grid;
 	grid-template-columns: repeat(4, minmax(0, 1fr));
 	gap: 12px;
-	margin-bottom: 18px;
+	margin-bottom: 28px;
 }
 .g2rd-promo-tile {
 	background: rgba(255, 255, 255, 0.1);
@@ -468,7 +473,8 @@ body.g2rd-promo-screen #wpcontent {
 @media (max-width: 600px) {
 	.g2rd-promo.g2rd-app { margin-right: 8px; }
 	.g2rd-promo-topbar__title { font-size: 22px; }
-	.g2rd-promo-band { height: 260px; }
+	.g2rd-promo-inner { padding: 18px 16px 0; }
+	.g2rd-promo-band { height: 300px; }
 	.g2rd-promo-nav__link { padding: 8px 10px; font-size: 13px; }
 }
 @media (prefers-reduced-motion: reduce) {
