@@ -31,3 +31,4 @@ Les tests exécutés sont des tests PHP autonomes sur des APIs simulées, pas de
 == Changelog ==
 = 1.0.0 =
 * Première version installable, destinée à la recette.
+* Chaîne CI/CD GitHub Actions (tests, contrôles, publication du ZIP).

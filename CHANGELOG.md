@@ -8,4 +8,5 @@
 - Prévisualisation paginée, tableau de bord, calendrier, historique, statistiques et CSV.
 - Métadonnées de commande, économies informatives, hooks de facture PDF.
 - Contrôles PHP et JavaScript, tests autonomes du moteur.
+- Chaîne CI/CD GitHub Actions (tests, Plugin Check, sécurité, release ZIP + SBOM).
 - Les tests d'intégration, le filtre de prix dynamique et l'historique légal des prix restent à réaliser.
