@@ -29,6 +29,9 @@ Campagnes automatiques par label, catégorie, profil client et période. Version
 Les tests exécutés sont des tests PHP autonomes sur des APIs simulées, pas des tests sur une installation WordPress/WooCommerce réelle. La compatibilité avec les extensions Wholesale, factures PDF, thème, caches et paiements express de Drakkar reste à valider. Les tarifs B2B dynamiques par quantité, groupe ou utilisateur exigent un adaptateur. Le tri et le filtre de prix reposant sur les tables de recherche WooCommerce ne sont pas adaptés aux tarifs dynamiques dans cette version. L'historique réglementaire des 30 jours n'est pas inclus. Interface française, sans traduction anglaise complète. Le mode natif intégré à la console du thème n'est pas implémenté : interface autonome inspirée du Connector.
 
 == Changelog ==
+= 1.0.4 =
+* Padding du bandeau admin : contenu décollé des bords.
+
 = 1.0.3 =
 * Version installable complète : updater GitHub + admin Verre + correctifs CI.
 * À installer une fois manuellement sur les sites qui n’avaient pas encore les notifications de mise à jour.

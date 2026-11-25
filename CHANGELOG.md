@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.4 — padding bandeau admin
+
+- Marge interne du bandeau Verre (titre, CTA, tuiles) pour éviter le collage aux bords.
+
 ## 1.0.3 — version de déploiement
 
 - ZIP de référence pour les boutiques : notifications de mise à jour GitHub, admin Verre, onglets sans reload.
