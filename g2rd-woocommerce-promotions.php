@@ -2,7 +2,7 @@
 /**
  * Plugin Name: G2RD WooCommerce Promotions
  * Description: Campagnes promotionnelles par label, catégorie et profil client, intégrées aux prix WooCommerce.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Requires at least: 6.6
  * Requires PHP: 8.1
  * Requires Plugins: woocommerce
@@ -14,15 +14,18 @@
  */
 namespace G2RD\Promotions;
 if (!defined('ABSPATH')) { exit; }
-define('G2RD_PROMO_VERSION', '1.0.0');
+define('G2RD_PROMO_VERSION', '1.0.1');
 define('G2RD_PROMO_FILE', __FILE__);
 require_once __DIR__.'/includes/Rules.php';
 require_once __DIR__.'/includes/Repository.php';
 require_once __DIR__.'/includes/Pricing.php';
 require_once __DIR__.'/includes/Orders.php';
 require_once __DIR__.'/includes/Admin.php';
+require_once __DIR__.'/includes/Updater.php';
 register_activation_hook(__FILE__, [Repository::class, 'install']);
 register_deactivation_hook(__FILE__, [Repository::class, 'deactivate']);
+// Updater hors du gate WooCommerce : les notifications de MAJ restent actives même si WC est absent.
+Updater::register();
 add_action('before_woocommerce_init', static function () {
     if (class_exists('Automattic\\WooCommerce\\Utilities\\FeaturesUtil')) {
         \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('custom_order_tables', __FILE__, true);

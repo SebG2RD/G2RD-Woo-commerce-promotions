@@ -14,12 +14,24 @@ namespace {
     function is_taxonomy_hierarchical($t){return $t==='product_cat';}
     function get_ancestors($id,$tax,$type){return $id===13?[11]:[];}
     function wp_get_object_terms($id,$tax,$args){return $GLOBALS['termmap'][$id][$tax]??[];}
-    function is_wp_error($v){return false;}
+    function is_wp_error($v){return $v instanceof \WP_Error;}
     function get_woocommerce_currency(){return 'EUR';}function wc_get_price_decimals(){return 2;}
     function wc_format_decimal($x,$n){return number_format((float)$x,$n,'.','');}
     function wc_format_localized_decimal($x){return (string)$x;}
-    function apply_filters($tag,$value,...$args){return $value;}
+    function apply_filters($tag,$value,...$args){
+        if($tag==='g2rd_promo_github_release' && array_key_exists('g2rd_release_mock',$GLOBALS)) return $GLOBALS['g2rd_release_mock'];
+        return $value;
+    }
     function __($s,$d=''){return $s;}
+    function esc_html($s){return htmlspecialchars((string)$s,ENT_QUOTES,'UTF-8');}
+    function plugin_basename($file){return 'g2rd-woocommerce-promotions/g2rd-woocommerce-promotions.php';}
+    function get_transient($k){return $GLOBALS['transients'][$k]??false;}
+    function set_transient($k,$v,$t=0){$GLOBALS['transients'][$k]=$v;return true;}
+    function delete_transient($k){unset($GLOBALS['transients'][$k]);return true;}
+    function wp_remote_get($url,$args=[]){return $GLOBALS['http_response']??new \WP_Error('http','blocked');}
+    function wp_remote_retrieve_body($r){return is_array($r)?($r['body']??''):'';}
+    function wp_remote_retrieve_response_code($r){return is_array($r)?(int)($r['code']??0):0;}
+    class WP_Error {function __construct(public $code='',public $message=''){}}
     function WC(){return $GLOBALS['cartobj'];}
     function wc_get_product($id){return isset($GLOBALS['products'][$id])?clone $GLOBALS['products'][$id]:false;}
     function wc_get_price_excluding_tax($p,$args){return $args['price']*$args['qty'];}
@@ -44,8 +56,10 @@ namespace {
     class MockCart {function __construct(public array $cart_contents){}function get_cart(){return $this->cart_contents;}function get_applied_coupons(){return [];}}
 }
 namespace G2RD\Promotions {
-    require_once __DIR__.'/../includes/Rules.php';require_once __DIR__.'/../includes/Repository.php';require_once __DIR__.'/../includes/Pricing.php';require_once __DIR__.'/../includes/Orders.php';
-    $tests=0;$fail=0;
+    if(!defined('G2RD_PROMO_VERSION')) define('G2RD_PROMO_VERSION','1.0.1');
+    if(!defined('G2RD_PROMO_FILE')) define('G2RD_PROMO_FILE',__DIR__.'/../g2rd-woocommerce-promotions.php');
+    require_once __DIR__.'/../includes/Rules.php';require_once __DIR__.'/../includes/Repository.php';require_once __DIR__.'/../includes/Pricing.php';require_once __DIR__.'/../includes/Orders.php';require_once __DIR__.'/../includes/Updater.php';
+    $tests=0;$fail=0;$GLOBALS['transients']=[];
     function expect($actual,$expected,string $label):void {global $tests,$fail;$tests++;if($actual!==$expected){$fail++;echo "FAIL $label: ".var_export($actual,true)." expected ".var_export($expected,true)."\n";}else echo "PASS $label\n";}
     function rule(int $id=1,float $rate=20,array $overrides=[]):array{return array_merge(['id'=>$id,'name'=>'Test '.$id,'enabled'=>true,'rate'=>$rate,'start'=>time()-3600,'end'=>time()+3600,'profiles'=>['guest','retail'],'brands'=>[1],'categories'=>[11],'exclude_products'=>[],'exclude_categories'=>[],'exclude_brands'=>[],'coupons'=>false,'brand_taxonomy'=>'product_brand'],$overrides);}
     $repo=new Repository();$rr=new \ReflectionProperty(Repository::class,'rows');$rs=new \ReflectionProperty(Repository::class,'settings');
@@ -90,5 +104,31 @@ namespace G2RD\Promotions {
     $totals=$orders->totals(['order_total'=>['label'=>'Total','value'=>'57.60']],$order,'incl');expect($totals['order_total']['value'],'57.60','no second discount on total');expect(isset($totals['g2rd_promotion_savings']),true,'informational savings row');
     $rr->setValue($repo,[]);$engine->reset_cart($cart);$engine->apply_cart($cart);expect($cart->cart_contents['a']['data']->get_price(),'30','expired rule restores price');expect(isset($cart->cart_contents['a']['g2rd_promotion']),false,'expired rule clears cart metadata');expect(Orders::savings($order,true),14.4,'historical order savings preserved');
     expect(Rules::price(29.99,30,2),20.99,'currency rounding');expect(Rules::price(10,100,2),0.0,'100 percent');expect(Rules::parse_date('2026-03-29T02:30',new \DateTimeZone('Europe/Paris')),null,'nonexistent DST hour rejected');expect(Rules::parse_date('2026-02-30T12:00',new \DateTimeZone('Europe/Paris')),null,'invalid date rejected');
+
+    // --- Updater (GitHub Releases, sans réseau) ---
+    $norm=Updater::normalize(['tag_name'=>'v1.2.3','html_url'=>'https://example.test/r','body'=>'notes','assets'=>[['name'=>'g2rd-woocommerce-promotions-1.2.3.zip','browser_download_url'=>'https://example.test/p.zip']]]);
+    expect($norm['version']??null,'1.2.3','updater strips v prefix');
+    expect($norm['package']??null,'https://example.test/p.zip','updater picks release zip asset');
+    expect(Updater::normalize(['tag_name'=>'v1.2.3','assets'=>[['name'=>'source.zip','browser_download_url'=>'https://example.test/src.zip']]])['package']??null,'','updater ignores non-plugin zip');
+    expect(Updater::normalize(['tag_name'=>'nightly']),null,'updater rejects non-semver tag');
+
+    $GLOBALS['transients']=[];
+    $GLOBALS['g2rd_release_mock']=['tag_name'=>'v9.9.9','html_url'=>'https://example.test/r','body'=>'x','assets'=>[['name'=>'g2rd-woocommerce-promotions-9.9.9.zip','browser_download_url'=>'https://example.test/u.zip']]];
+    $upd=Updater::check(false,['Version'=>'1.0.1'],'g2rd-woocommerce-promotions/g2rd-woocommerce-promotions.php',[]);
+    expect(is_array($upd)&&($upd['version']??'')==='9.9.9',true,'updater offers newer release');
+    expect($upd['package']??null,'https://example.test/u.zip','updater package url');
+
+    $GLOBALS['transients']=[];
+    $upd_same=Updater::check(false,['Version'=>'9.9.9'],'g2rd-woocommerce-promotions/g2rd-woocommerce-promotions.php',[]);
+    expect($upd_same,false,'updater silent when already current');
+
+    $GLOBALS['transients']=[];
+    $GLOBALS['g2rd_release_mock']=['tag_name'=>'v2.0.0','html_url'=>'https://example.test/r','body'=>'','assets'=>[]];
+    expect(Updater::check(false,['Version'=>'1.0.1'],'g2rd-woocommerce-promotions/g2rd-woocommerce-promotions.php',[]),false,'updater silent without zip asset');
+
+    unset($GLOBALS['g2rd_release_mock']);$GLOBALS['transients']=[];$GLOBALS['http_response']=new \WP_Error('http','fail');
+    expect(Updater::latest_release(),null,'updater fails closed on API error');
+    expect(Updater::check(false,['Version'=>'1.0.1'],'other-plugin/other.php',[]),false,'updater ignores other plugins');
+
     echo "\n$tests tests, $fail failures.\n";exit($fail?1:0);
 }

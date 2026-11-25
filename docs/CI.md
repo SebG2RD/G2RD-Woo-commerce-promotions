@@ -28,12 +28,12 @@ Sans `GH_PAT`, un commit `version:` échoue **seulement** si le tag `vX.Y.Z` n�
 
 ```bash
 composer install
-composer run test          # 51 asserts mocks
+composer run test          # asserts mocks (pricing + updater)
 composer run lint:security # SAST OWASP
 composer run analyse       # PHPStan
 composer run js:check
 composer run ci
-bash tools/verify-release-version.sh 1.0.0
+bash tools/verify-release-version.sh 1.0.1
 php tools/build-zip.php
 bash tools/verify-plugin-zip.sh g2rd-woocommerce-promotions.zip
 ```
@@ -43,9 +43,10 @@ bash tools/verify-plugin-zip.sh g2rd-woocommerce-promotions.zip
 1. Aligner Version / `G2RD_PROMO_VERSION` / Stable tag / Changelog sur `x.y.z`
 2. Commit sur `main` avec le sujet exact : `version: x.y.z`
 3. `auto-tag.yml` crée `vX.Y.Z` → `release.yml` construit et publie le ZIP
+4. Les sites avec l’updater (1.0.1+) voient la notification dans **Extensions** (asset `g2rd-woocommerce-promotions-x.y.z.zip`)
 
 ## Écarts volontaires vs Facturation
 
-- Pas de signature Ed25519 ni webhook g2rd.fr (pas d’updater intégré v1)
+- Updater via GitHub Releases publics (filtre `update_plugins_github.com`), pas de signature Ed25519 / serveur g2rd.fr
 - Style WordPress Coding Standards en **informatif** (code compact actuel)
 - Aucune dépendance Composer runtime (WooCommerce fournit Action Scheduler)

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1 — notifications de mise à jour
+
+- Updater intégré : WordPress interroge les GitHub Releases et propose le ZIP officiel.
+- Les sites doivent d’abord installer 1.0.1 manuellement ; les versions suivantes arriveront en notification dans Extensions.
+
 ## 1.0.0 — première version de recette
 
 - Gestion des campagnes par label, catégorie, profil et dates.
