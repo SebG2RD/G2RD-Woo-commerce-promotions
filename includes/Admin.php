@@ -57,13 +57,13 @@ final class Admin {
             $n=count($rules)+1;
             $type=in_array($raw['type']??null,Rules::TYPES,true)?$raw['type']:'percent';
             $value=filter_var($raw['value']??null,FILTER_VALIDATE_FLOAT);
-            if($value===false || $value<=0 || round($value,3)!=$value || ($type==='percent' && $value>100)) throw new \InvalidArgumentException(sprintf('Règle %d : valeur invalide (pourcentage entre 0,001 et 100, ou montant positif, 3 décimales maximum).',$n));
+            if($value===false || $value<=0 || round($value,3)!=$value || ($type==='percent' && $value>100)) throw new \InvalidArgumentException(sprintf('Règle %d : valeur invalide (pourcentage entre 0,001 et 100, ou montant positif, 3 décimales maximum).',(int)$n));
             $brands=$this->term_ids($raw['brands']??[],$tax); $cats=$this->term_ids($raw['categories']??[],'product_cat');
-            if(count($brands)!==count($this->ids($raw['brands']??[])) || count($cats)!==count($this->ids($raw['categories']??[]))) throw new \InvalidArgumentException(sprintf('Règle %d : une sélection de labels ou catégories est invalide.',$n));
+            if(count($brands)!==count($this->ids($raw['brands']??[])) || count($cats)!==count($this->ids($raw['categories']??[]))) throw new \InvalidArgumentException(sprintf('Règle %d : une sélection de labels ou catégories est invalide.',(int)$n));
             $products=$this->ids($raw['products']??[]);
-            foreach($products as $pid) if(!in_array(get_post_type($pid),['product','product_variation'],true)) throw new \InvalidArgumentException(sprintf('Règle %d : l’article #%d n’existe pas.',$n,$pid));
+            foreach($products as $pid) if(!in_array(get_post_type($pid),['product','product_variation'],true)) throw new \InvalidArgumentException(sprintf('Règle %d : l’article #%d n’existe pas.',(int)$n,(int)$pid));
             $priority=absint($raw['priority']??0);
-            if($priority>99) throw new \InvalidArgumentException(sprintf('Règle %d : priorité entre 1 et 99.',$n));
+            if($priority>99) throw new \InvalidArgumentException(sprintf('Règle %d : priorité entre 1 et 99.',(int)$n));
             // Specific products replace the label/category selection.
             $rules[]=['type'=>$type,'value'=>(float)$value,'brands'=>$products?[]:$brands,'categories'=>$products?[]:$cats,'products'=>$products,'priority'=>$priority];
         }
