@@ -183,7 +183,12 @@ final class Pricing {
         if($this->refreshing_cart || !$this->storefront()) return;
         $lines=$cart->get_cart();if(!$lines) return;
         $needs_refresh=(bool)$this->repo->active();
-        foreach($lines as $line) if(!empty($line['g2rd_promotion'])) {$needs_refresh=true;break;}
+        foreach ($lines as $line) {
+            if (!empty($line['g2rd_promotion'])) {
+                $needs_refresh = true;
+                break;
+            }
+        }
         if(!$needs_refresh) return;
         $this->refreshing_cart=true;
         try {$cart->calculate_totals();} finally {$this->refreshing_cart=false;}
@@ -273,7 +278,9 @@ final class Pricing {
             if($r['categories']) $group[]=['taxonomy'=>'product_cat','field'=>'term_id','terms'=>$r['categories'],'include_children'=>true];
             if(count($group)===1) {$unrestricted=true; break;} $union[]=$group;
         }
-        $args=['post_type'=>'product','post_status'=>'publish','fields'=>'ids','posts_per_page'=>$limit,'paged'=>$page,'orderby'=>'ID','order'=>'ASC','no_found_rows'=>false,'ignore_sticky_posts'=>true,'suppress_filters'=>true,'g2rd_promo_candidates'=>true];
+        // Pas de suppress_filters : interdit par Plugin Check / VIP ; le flag
+        // g2rd_promo_candidates permet aux intégrations de reconnaître cette requête.
+        $args=['post_type'=>'product','post_status'=>'publish','fields'=>'ids','posts_per_page'=>$limit,'paged'=>$page,'orderby'=>'ID','order'=>'ASC','no_found_rows'=>false,'ignore_sticky_posts'=>true,'g2rd_promo_candidates'=>true];
         if(!$unrestricted) { if(count($union)>1) $args['tax_query']=$union; else $args['post__in']=[0]; }
         return new \WP_Query($args);
     }

@@ -96,17 +96,19 @@ jobs:
           tools: composer:v2, wp-cli
           coverage: none
 
+      # Cache npm désactivé : ce job publie un artefact de release (zizmor cache-poisoning).
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
       - name: Contrôles qualité (tests, sécurité, PHPStan, JS)
         run: |
           composer validate --strict --no-check-publish
           composer install --no-interaction --no-progress --prefer-dist
           composer run ci
           composer audit --locked --abandoned=report
-
-      - name: Setup Node
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: '22'
 
       - name: Créer le ZIP
         env:
@@ -248,7 +250,7 @@ jobs:
     needs: publish
     permissions:
       contents: write
-    # zizmor: ignore[self-repository]
-    uses: ./.github/workflows/sbom.yml
+    # Syntaxe GitHub « self-repository » ($/) exigée par zizmor (pas ./).
+    uses: $/.github/workflows/sbom.yml
     with:
       tag: ${{ needs.publish.outputs.tag }}

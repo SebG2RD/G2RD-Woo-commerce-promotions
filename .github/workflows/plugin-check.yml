@@ -7,6 +7,7 @@ name: Plugin Check
 # - plugin_updater_detected : Update URI volontaire
 # - outdated_tested_upto_header : Tested up to relevé après test réel
 # - readme_description_non_official_language : readme en français
+# - readme_short_description_non_official_language : résumé FR volontaire
 on:
   push:
     branches: [main]
@@ -101,7 +102,7 @@ jobs:
 
           # shellcheck disable=SC2016
           RESULT=$(php -r '
-            $ignored = ["plugin_updater_detected", "outdated_tested_upto_header", "readme_description_non_official_language"];
+            $ignored = ["plugin_updater_detected", "outdated_tested_upto_header", "readme_description_non_official_language", "readme_short_description_non_official_language"];
             $errors = 0; $ign = 0;
             foreach ((@file("pc.json", FILE_IGNORE_NEW_LINES) ?: []) as $l) {
               $l = trim($l);

@@ -45,7 +45,8 @@ final class Repository {
     public function all(): array {
         if ($this->rows !== null) return $this->rows;
         global $wpdb;
-        $rows = $wpdb->get_results('SELECT * FROM '.self::table().' ORDER BY id DESC', ARRAY_A) ?: [];
+        // %i = identifiant de table (WordPress 6.2+ / exigence Plugin Check).
+        $rows = $wpdb->get_results($wpdb->prepare('SELECT * FROM %i ORDER BY id DESC', self::table()), ARRAY_A) ?: [];
         return $this->rows = array_map([self::class,'decode'],$rows);
     }
     public function get(int $id): ?array { foreach($this->all() as $r) if ($r['id']===$id) return $r; return null; }
@@ -70,7 +71,10 @@ final class Repository {
         $this->rows=null; self::reschedule($id,null); self::log($id,'delete',$r['name']); self::invalidate();
     }
     public static function log(int $id,string $event,string $detail=''): void { global $wpdb; $wpdb->insert(self::logs_table(),['campaign_id'=>$id,'actor'=>get_current_user_id(),'event'=>$event,'detail'=>$detail,'created'=>time()]); }
-    public function logs(): array { global $wpdb; return $wpdb->get_results('SELECT * FROM '.self::logs_table().' ORDER BY id DESC LIMIT 200',ARRAY_A)?:[]; }
+    public function logs(): array {
+        global $wpdb;
+        return $wpdb->get_results($wpdb->prepare('SELECT * FROM %i ORDER BY id DESC LIMIT %d', self::logs_table(), 200), ARRAY_A) ?: [];
+    }
     public static function reschedule(int $id, ?array $r): void {
         foreach (['start','end'] as $k) {
             $args=[$id,$k];
