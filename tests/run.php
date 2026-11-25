@@ -56,7 +56,7 @@ namespace {
     class MockCart {function __construct(public array $cart_contents){}function get_cart(){return $this->cart_contents;}function get_applied_coupons(){return [];}}
 }
 namespace G2RD\Promotions {
-    if(!defined('G2RD_PROMO_VERSION')) define('G2RD_PROMO_VERSION','1.0.1');
+    if(!defined('G2RD_PROMO_VERSION')) define('G2RD_PROMO_VERSION','1.0.2');
     if(!defined('G2RD_PROMO_FILE')) define('G2RD_PROMO_FILE',__DIR__.'/../g2rd-woocommerce-promotions.php');
     require_once __DIR__.'/../includes/Rules.php';require_once __DIR__.'/../includes/Repository.php';require_once __DIR__.'/../includes/Pricing.php';require_once __DIR__.'/../includes/Orders.php';require_once __DIR__.'/../includes/Updater.php';
     $tests=0;$fail=0;$GLOBALS['transients']=[];

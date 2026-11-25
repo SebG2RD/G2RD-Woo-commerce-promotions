@@ -8,21 +8,36 @@ final class Admin {
     public function __construct(Repository $repo,Pricing $pricing) {$this->repo=$repo;$this->pricing=$pricing;}
     public function register(): void {
         add_action('admin_menu',[$this,'menu']); add_action('admin_enqueue_scripts',[$this,'assets']);
+        add_filter('admin_body_class',[$this,'body_class']);
         add_action('admin_post_g2rd_promo_save',[$this,'save']); add_action('admin_post_g2rd_promo_action',[$this,'action']);
         add_action('admin_post_g2rd_promo_settings',[$this,'save_settings']); add_action('admin_post_g2rd_promo_export',[$this,'export']);
         add_action('wp_ajax_g2rd_promo_preview',[$this,'preview']);
     }
     public function menu(): void {add_submenu_page('woocommerce','G2RD Promotions','G2RD Promotions',self::CAP,self::SLUG,[$this,'render']);}
+    /** Marque le body pour le fond Verre (comme Facturation / Geo). */
+    public function body_class(string $classes): string {
+        if(isset($_GET['page']) && $_GET['page']===self::SLUG) $classes.=' g2rd-promo-screen';
+        return $classes;
+    }
     public function assets($hook): void {
         if(!isset($_GET['page']) || $_GET['page']!==self::SLUG) return;
         wp_enqueue_style('g2rd-promotions',plugins_url('assets/admin.css',G2RD_PROMO_FILE),[],G2RD_PROMO_VERSION);
         wp_enqueue_script('g2rd-promotions',plugins_url('assets/admin.js',G2RD_PROMO_FILE),[],G2RD_PROMO_VERSION,true);
-        wp_localize_script('g2rd-promotions','G2RDPromo',['ajax'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('g2rd_promo_preview'),'working'=>'Calcul en cours…','error'=>'Impossible de charger la prévisualisation.','confirm'=>'Confirmer la suppression de cette campagne ?']);
+        wp_localize_script('g2rd-promotions','G2RDPromo',[
+            'ajax'=>admin_url('admin-ajax.php'),
+            'nonce'=>wp_create_nonce('g2rd_promo_preview'),
+            'working'=>'Calcul en cours…',
+            'error'=>'Impossible de charger la prévisualisation.',
+            'confirm'=>'Confirmer la suppression de cette campagne ?',
+            'tabs'=>['overview','campaigns','calendar','stats','history','settings','diagnostic','help'],
+            'defaultTab'=>'overview',
+        ]);
     }
     private function guard(): void {if(!current_user_can(self::CAP)) wp_die(esc_html__('Accès refusé.','g2rd-woocommerce-promotions'),'', ['response'=>403]);}
     private function url(array $q=[]): string {return add_query_arg(array_merge(['page'=>self::SLUG],$q),admin_url('admin.php'));}
     private function redirect(array $q=[],string $msg='',bool $error=false): void {
         if($msg!=='') set_transient('g2rd_promo_notice_'.get_current_user_id(),['msg'=>$msg,'error'=>$error],60);
+        // ?tab= sert de pont serveur → le JS convertit en #onglet (sans reload ensuite).
         wp_safe_redirect($this->url($q));exit;
     }
     private function ids($raw): array { if(is_string($raw)) $raw=preg_split('/[\s,;]+/',$raw,-1,PREG_SPLIT_NO_EMPTY); if(!is_array($raw)) return []; return array_values(array_unique(array_filter(array_map('absint',array_filter($raw,'is_scalar'))))); }
@@ -105,17 +120,61 @@ final class Admin {
     }
     private function toggle(string $name,string $label,string $desc,bool $checked,bool $locked=false): void {echo '<label class="g2rd-promo-setting"><span class="g2rd-promo-icon">'.wp_kses($this->icon('shield'),$this->svg_allowed()).'</span><span><strong>'.esc_html($label).'</strong><small>'.esc_html($desc).'</small></span><input type="checkbox" class="g2rd-promo-toggle" name="'.esc_attr($name).'" value="1" '.checked($checked,true,false).' '.disabled($locked,true,false).'></label>';}
     public function render(): void {
-        $this->guard();$tab=sanitize_key($_GET['tab']??'overview');$tabs=['overview'=>'Vue d’ensemble','campaigns'=>'Campagnes','calendar'=>'Calendrier','stats'=>'Statistiques','history'=>'Historique','settings'=>'Paramètres','diagnostic'=>'Diagnostic','help'=>'Documentation'];
-        echo '<div class="wrap g2rd-promo"><header class="g2rd-promo-head"><span class="g2rd-promo-logo">'.wp_kses($this->icon('tag'),$this->svg_allowed()).'</span><div><h1>G2RD Promotions</h1><p>Gestion des opérations commerciales WooCommerce</p></div><span class="g2rd-promo-version">v'.esc_html(G2RD_PROMO_VERSION).'</span><a class="button button-primary" href="'.esc_url($this->url(['tab'=>'edit'])).'">+ Nouvelle campagne</a></header><nav class="g2rd-promo-nav" aria-label="Navigation G2RD">';
-        foreach($tabs as $key=>$label) echo '<a class="'.(($tab===$key||$key==='campaigns'&&$tab==='edit')?'is-active':'').'" href="'.esc_url($this->url(['tab'=>$key])).'">'.esc_html($label).'</a>';
-        echo '</nav>';$notice=get_transient('g2rd_promo_notice_'.get_current_user_id());if(is_array($notice)){delete_transient('g2rd_promo_notice_'.get_current_user_id());echo '<div class="notice inline notice-'.($notice['error']?'error':'success').'"><p>'.esc_html($notice['msg']).'</p></div>';}
-        switch($tab){case 'edit':$this->editor(absint($_GET['id']??0));break;case 'campaigns':$this->campaigns();break;case 'calendar':$this->calendar();break;case 'stats':$this->stats();break;case 'history':$this->history();break;case 'settings':$this->settings();break;case 'diagnostic':$this->diagnostic();break;case 'help':$this->help();break;default:$this->overview();}
-        echo '<footer class="g2rd-promo-footer">G2RD Agence Web · <a href="https://g2rd.fr/" target="_blank" rel="noopener noreferrer">g2rd.fr</a> · v'.esc_html(G2RD_PROMO_VERSION).'</footer></div>';
+        $this->guard();
+        $tab=sanitize_key(wp_unslash($_GET['tab']??'overview'));
+        $tabs=['overview'=>'Vue d’ensemble','campaigns'=>'Campagnes','calendar'=>'Calendrier','stats'=>'Statistiques','history'=>'Historique','settings'=>'Paramètres','diagnostic'=>'Diagnostic','help'=>'Documentation'];
+        $is_edit=($tab==='edit');
+        $all=$this->repo->all();
+        $counts=['active'=>0,'scheduled'=>0,'draft'=>0,'expired'=>0];
+        foreach($all as $r) $counts[Rules::status($r,time())]++;
+
+        echo '<hr class="wp-header-end">';
+        echo '<div class="wrap g2rd-promo g2rd-app g2rd-app--php" id="g2rd-promo-root" data-initial-tab="'.esc_attr($is_edit?'campaigns':(isset($tabs[$tab])?$tab:'overview')).'">';
+        echo '<div class="g2rd-promo-band" aria-hidden="true"></div><div class="g2rd-promo-inner">';
+        echo '<header class="g2rd-promo-topbar"><div class="g2rd-promo-topbar__brand"><span class="g2rd-promo-topbar__mark" aria-hidden="true">'.wp_kses($this->icon('tag'),$this->svg_allowed()).'</span><div><p class="g2rd-promo-topbar__eyebrow">G2RD · WooCommerce</p><h1 class="g2rd-promo-topbar__title">Promotions</h1></div></div>';
+        echo '<div class="g2rd-promo-topbar__actions"><span class="g2rd-promo-chip g2rd-promo-chip--mono">v'.esc_html(G2RD_PROMO_VERSION).'</span>';
+        echo '<a class="button button-primary g2rd-promo-cta" href="'.esc_url($this->url(['tab'=>'edit'])).'">+ Nouvelle campagne</a></div></header>';
+
+        if(!$is_edit){
+            echo '<div class="g2rd-promo-tiles" aria-label="Indicateurs">';
+            foreach(['active'=>['Actives','Campagnes en cours'],'scheduled'=>['Programmées','À venir'],'draft'=>['Brouillons','Désactivées'],'expired'=>['Terminées','Expirées']] as $key=>$meta){
+                echo '<div class="g2rd-promo-tile"><small>'.esc_html($meta[0]).'</small><b class="is-mono">'.(int)$counts[$key].'</b><span>'.esc_html($meta[1]).'</span></div>';
+            }
+            echo '</div>';
+        }
+
+        echo '<nav class="g2rd-promo-nav" aria-label="Navigation G2RD Promotions"'.($is_edit?' hidden':'').'>';
+        foreach($tabs as $key=>$label){
+            echo '<a class="g2rd-promo-nav__link" href="#'.esc_attr($key).'" data-tab="'.esc_attr($key).'">'.esc_html($label).'</a>';
+        }
+        echo '</nav>';
+
+        $notice=get_transient('g2rd_promo_notice_'.get_current_user_id());
+        if(is_array($notice)){delete_transient('g2rd_promo_notice_'.get_current_user_id());echo '<div class="notice inline notice-'.($notice['error']?'error':'success').'"><p>'.esc_html($notice['msg']).'</p></div>';}
+
+        echo '<div class="g2rd-promo-body">';
+        if($is_edit){
+            echo '<div class="g2rd-promo-panel is-active" data-panel="edit" role="tabpanel">';
+            $this->editor(absint($_GET['id']??0));
+            echo '</div>';
+        } else {
+            // Tous les onglets rendus une fois : le JS bascule sans recharger la page.
+            $panels=['overview'=>[$this,'overview'],'campaigns'=>[$this,'campaigns'],'calendar'=>[$this,'calendar'],'stats'=>[$this,'stats'],'history'=>[$this,'history'],'settings'=>[$this,'settings'],'diagnostic'=>[$this,'diagnostic'],'help'=>[$this,'help']];
+            foreach($panels as $key=>$cb){
+                echo '<div class="g2rd-promo-panel" data-panel="'.esc_attr($key).'" role="tabpanel" hidden>';
+                $cb();
+                echo '</div>';
+            }
+        }
+        echo '</div>';
+        echo '<footer class="g2rd-promo-footer">G2RD Agence Web · <a href="https://g2rd.fr/" target="_blank" rel="noopener noreferrer">g2rd.fr</a> · v'.esc_html(G2RD_PROMO_VERSION).'</footer>';
+        echo '</div></div>';
     }
     private function overview(): void {
-        $all=$this->repo->all();$counts=['active'=>0,'scheduled'=>0,'draft'=>0,'expired'=>0];foreach($all as $r) $counts[Rules::status($r,time())]++;
-        echo '<div class="g2rd-promo-kpis">';foreach(['active'=>'Actives','scheduled'=>'Programmées','draft'=>'Brouillons / désactivées','expired'=>'Terminées'] as $key=>$label) echo '<div class="g2rd-promo-kpi"><span class="g2rd-promo-icon">'.wp_kses($this->icon('calendar'),$this->svg_allowed()).'</span><span>'.esc_html($label).'</span><strong>'.(int)$counts[$key].'</strong></div>';echo '</div>';
-        $this->campaigns(true);$this->diagnostic(true);
+        $this->section('Vue d’ensemble','Campagnes récentes et état des intégrations.','tag');
+        echo '<p class="g2rd-promo-hint">Les indicateurs du bandeau se mettent à jour à chaque chargement de la page. Change d’onglet sans recharger.</p></section>';
+        $this->campaigns(true);
+        $this->diagnostic(true);
     }
     private function status(array $r): string {$key=Rules::status($r,time());$labels=['active'=>'Active','scheduled'=>'Programmée','draft'=>'Désactivée / brouillon','expired'=>'Terminée'];return wp_kses_post('<span class="g2rd-promo-chip status-'.esc_attr($key).'">'.esc_html($labels[$key]).'</span>');}
     private function date(int $stamp): string {return wp_date('d/m/Y H:i',$stamp);}
@@ -126,7 +185,8 @@ final class Admin {
         $rows=$this->repo->all();if($overview)$rows=array_slice($rows,0,5);
         if(!$rows){echo '<div class="g2rd-promo-empty"><p>Aucune campagne pour le moment.</p><a class="button button-primary" href="'.esc_url($this->url(['tab'=>'edit'])).'">Nouvelle campagne</a></div></section>';return;}
         if(!$overview)echo '<div class="g2rd-promo-toolbar"><input type="search" id="g2rd-campaign-search" placeholder="Rechercher une campagne…" aria-label="Rechercher une campagne"><select id="g2rd-campaign-status" aria-label="Filtrer par statut"><option value="">Tous les statuts</option><option value="active">Actives</option><option value="scheduled">Programmées</option><option value="draft">Désactivées</option><option value="expired">Terminées</option></select></div>';
-        echo '<div class="g2rd-promo-table-wrap"><table class="g2rd-promo-table" id="g2rd-campaign-table"><thead><tr><th>Campagne / clientèle</th><th>Labels / catégories</th><th>Remise</th><th>Période</th><th>Statut</th><th>Actions</th></tr></thead><tbody>';
+        $table_id=$overview?'':' id="g2rd-campaign-table"';
+        echo '<div class="g2rd-promo-table-wrap"><table class="g2rd-promo-table"'.$table_id.'><thead><tr><th>Campagne / clientèle</th><th>Labels / catégories</th><th>Remise</th><th>Période</th><th>Statut</th><th>Actions</th></tr></thead><tbody>';
         foreach($rows as $r){echo '<tr data-status="'.esc_attr(Rules::status($r,time())).'"><td><a class="g2rd-promo-name" href="'.esc_url($this->url(['tab'=>'edit','id'=>$r['id']])).'">'.esc_html($r['name']).'</a><small>'.esc_html($this->profiles($r['profiles'])).'</small></td><td>'.esc_html($this->term_names($r['brands'],$r['brand_taxonomy'])).'<small>'.esc_html($this->term_names($r['categories'],'product_cat')).'</small></td><td><strong class="g2rd-promo-rate">−'.esc_html(wc_format_localized_decimal($r['rate'])).' %</strong></td><td>'.esc_html($this->date($r['start'])).'<small>'.esc_html($this->date($r['end'])).'</small></td><td>'.wp_kses_post($this->status($r)).'</td><td><div class="g2rd-promo-actions"><a class="button" href="'.esc_url($this->url(['tab'=>'edit','id'=>$r['id']])).'">Modifier</a>';
             foreach(['toggle'=>$r['enabled']?'Désactiver':'Activer','duplicate'=>'Dupliquer','delete'=>'Supprimer'] as $op=>$label){$this->post_start('g2rd_promo_action');echo '<input type="hidden" name="id" value="'.(int)$r['id'].'"><input type="hidden" name="op" value="'.esc_attr($op).'"><button class="button '.($op==='delete'?'g2rd-promo-danger':'').'" type="submit" '.($op==='delete'?'data-confirm="1"':'').'>'.esc_html($label).'</button></form>';}
             echo '</div></td></tr>';}
@@ -145,6 +205,7 @@ final class Admin {
         $this->section('Exclusions et protections','Les exclusions globales restent prioritaires.','shield');$this->toggle('native','Préserver les promotions existantes','Les tarifs promotionnels individuels ne sont jamais écrasés.',true,true);$this->toggle('stack','Ne pas cumuler les campagnes','La réduction éligible la plus élevée est retenue.',true,true);$this->toggle('coupons','Autoriser les codes promotionnels','Sinon le coupon est bloqué si le panier contient un produit concerné.',$r['coupons']);echo '<div class="g2rd-promo-fields">';$this->terms('exclude_brands',$s['brand_taxonomy'],$r['exclude_brands'],'Labels exclus');$this->terms('exclude_categories','product_cat',$r['exclude_categories'],'Catégories exclues');echo '</div>';$this->field('exclude_products','Identifiants produits / variations exclus (séparés par des virgules)',implode(', ',$r['exclude_products']));echo '</section></div><aside class="g2rd-promo-stack">';
         $this->section('Prévisualisation','Simulation serveur sur un échantillon de produits.','eye');echo '<button type="button" class="button" id="g2rd-promo-preview">Calculer les prix</button><div id="g2rd-promo-preview-result" aria-live="polite"></div></section>';
         $this->section('Publication','Vérifie les prix et les exclusions avant activation.');echo '<p>'.wp_kses_post($this->status($r)).'</p><button class="button button-primary g2rd-promo-full" type="submit">Enregistrer la campagne</button><a class="button g2rd-promo-full" href="'.esc_url($this->url(['tab'=>'campaigns'])).'">Retour aux campagnes</a></section></aside></div></form>';
+        // Lien retour : ?tab=campaigns → le JS bascule en #campaigns après reload POST.
     }
     public function preview(): void {
         $this->guard();check_ajax_referer('g2rd_promo_preview','nonce');
@@ -178,7 +239,7 @@ final class Admin {
     }
     private function stats(): void {
         $from=sanitize_text_field(wp_unslash($_GET['from']??wp_date('Y-m-d',time()-30*DAY_IN_SECONDS)));$to=sanitize_text_field(wp_unslash($_GET['to']??wp_date('Y-m-d')));
-        $this->section('Statistiques commerciales','Commandes traitées, terminées et remboursées. Montants HT par devise, hors livraison.','chart');echo '<form method="get" class="g2rd-promo-toolbar"><input type="hidden" name="page" value="g2rd-promotions"><input type="hidden" name="tab" value="stats"><label>Du <input type="date" name="from" value="'.esc_attr($from).'"></label><label> au <input type="date" name="to" value="'.esc_attr($to).'"></label><button class="button">Filtrer</button></form>';
+        $this->section('Statistiques commerciales','Commandes traitées, terminées et remboursées. Montants HT par devise, hors livraison.','chart');echo '<form method="get" class="g2rd-promo-toolbar" action="'.esc_url(admin_url('admin.php')).'"><input type="hidden" name="page" value="g2rd-promotions"><input type="hidden" name="tab" value="stats"><label>Du <input type="date" name="from" value="'.esc_attr($from).'"></label><label> au <input type="date" name="to" value="'.esc_attr($to).'"></label><button class="button">Filtrer</button></form>';
         try{$report=$this->stats_data($from,$to);if($report['truncated'])echo '<p class="g2rd-promo-hint">Rapport partiel : limite de 5 000 commandes. Réduis la période.</p>';echo '<p>'.(int)$report['scanned'].' commandes analysées.</p><div class="g2rd-promo-table-wrap"><table class="g2rd-promo-table"><thead><tr><th>Campagne</th><th>Profil</th><th>CA HT net</th><th>Remises HT (estimées après retours)</th><th>Quantité nette</th><th>Commandes</th></tr></thead><tbody>';foreach($report['rows'] as $r)echo '<tr><td>'.esc_html($r['campaign']).'</td><td>'.esc_html($this->profiles([$r['profile']])).'</td><td>'.wp_kses_post(wc_price($r['sales'],['currency'=>$r['currency']])).'</td><td>'.wp_kses_post(wc_price($r['savings'],['currency'=>$r['currency']])).'</td><td>'.esc_html((string)$r['qty']).'</td><td>'.count($r['orders']).'</td></tr>';echo '</tbody></table></div>';$this->post_start('g2rd_promo_export');echo '<input type="hidden" name="from" value="'.esc_attr($from).'"><input type="hidden" name="to" value="'.esc_attr($to).'"><button class="button">Exporter CSV</button></form>';}catch(\Throwable $e){echo '<p>'.esc_html($e->getMessage()).'</p>';}echo '</section>';
     }
     public function export(): void {
@@ -211,6 +272,6 @@ final class Admin {
         echo implode(';',$out)."\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- CSV binaire texte contrôlé
     }
     private function help(): void {
-        $this->section('Guide de prise en main','G2RD WooCommerce Promotions v'.G2RD_PROMO_VERSION);echo '<ol><li>Dans Paramètres, sélectionne la taxonomie de labels et les exclusions globales.</li><li>Configure les rôles Wholesale et vérifie les clés de prix avec le plugin B2B.</li><li>Ajoute une campagne, sélectionne les profils, labels, catégories et dates.</li><li>Calcule la prévisualisation. Compare les prix de plusieurs produits sur une boutique de test.</li><li>Active la campagne. Vérifie panier, paiement, commandes, badges et facture.</li></ol><p>Les campagnes dynamiques ne modifient jamais le prix de référence enregistré dans les fiches produits. Les commandes conservent leur propre historique de remise.</p><p><strong>À valider :</strong> moteur Wholesale, thème, facture PDF, règles de cache, tri et filtre de prix. L’historique légal des prix sur 30 jours n’est pas fourni dans cette version.</p><h3>Changelog 1.0.1</h3><p>Notifications de mise à jour via GitHub Releases.</p><h3>Changelog 1.0.0</h3><p>Campagnes planifiées, profils clients, prix dynamiques, prévisualisation, historique des commandes, statistiques et diagnostic.</p></section>';
+        $this->section('Guide de prise en main','G2RD WooCommerce Promotions v'.G2RD_PROMO_VERSION);echo '<ol><li>Dans Paramètres, sélectionne la taxonomie de labels et les exclusions globales.</li><li>Configure les rôles Wholesale et vérifie les clés de prix avec le plugin B2B.</li><li>Ajoute une campagne, sélectionne les profils, labels, catégories et dates.</li><li>Calcule la prévisualisation. Compare les prix de plusieurs produits sur une boutique de test.</li><li>Active la campagne. Vérifie panier, paiement, commandes, badges et facture.</li></ol><p>Les campagnes dynamiques ne modifient jamais le prix de référence enregistré dans les fiches produits. Les commandes conservent leur propre historique de remise.</p><p><strong>À valider :</strong> moteur Wholesale, thème, facture PDF, règles de cache, tri et filtre de prix. L’historique légal des prix sur 30 jours n’est pas fourni dans cette version.</p><h3>Changelog 1.0.2</h3><p>Design Verre G2RD et onglets sans rechargement.</p><h3>Changelog 1.0.1</h3><p>Notifications de mise à jour via GitHub Releases.</p><h3>Changelog 1.0.0</h3><p>Campagnes planifiées, profils clients, prix dynamiques, prévisualisation, historique des commandes, statistiques et diagnostic.</p></section>';
     }
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2 — admin Verre + onglets sans reload
+
+- Shell admin aligné Facturation / Geo (bandeau navy, tuiles, tokens `--g2rd-*`).
+- Polices Instrument Sans et IBM Plex Mono embarquées (OFL).
+- Navigation des onglets en hash (`#campaigns`, …) sans recharger la page.
+
 ## 1.0.1 — notifications de mise à jour
 
 - Updater intégré : WordPress interroge les GitHub Releases et propose le ZIP officiel.

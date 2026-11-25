@@ -4,7 +4,7 @@ Tags: woocommerce, promotion, wholesale, discount, brands
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.0.1
+Stable tag: 1.0.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -29,6 +29,10 @@ Campagnes automatiques par label, catégorie, profil client et période. Version
 Les tests exécutés sont des tests PHP autonomes sur des APIs simulées, pas des tests sur une installation WordPress/WooCommerce réelle. La compatibilité avec les extensions Wholesale, factures PDF, thème, caches et paiements express de Drakkar reste à valider. Les tarifs B2B dynamiques par quantité, groupe ou utilisateur exigent un adaptateur. Le tri et le filtre de prix reposant sur les tables de recherche WooCommerce ne sont pas adaptés aux tarifs dynamiques dans cette version. L'historique réglementaire des 30 jours n'est pas inclus. Interface française, sans traduction anglaise complète. Le mode natif intégré à la console du thème n'est pas implémenté : interface autonome inspirée du Connector.
 
 == Changelog ==
+= 1.0.2 =
+* Interface admin direction Verre G2RD (bandeau, tuiles, polices).
+* Onglets sans rechargement de page (navigation par hash).
+
 = 1.0.1 =
 * Notifications de mise à jour WordPress via les GitHub Releases (ZIP de release).
 

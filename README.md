@@ -2,7 +2,7 @@
 
 Campagnes promotionnelles WooCommerce par label, catégorie et profil client (visiteur, particulier, Wholesale).
 
-- **Version :** 1.0.1 (recette + notifications de mise à jour GitHub)
+- **Version :** 1.0.2 (admin Verre G2RD + notifications GitHub)
 - **PHP :** ≥ 8.1 · **WordPress :** ≥ 6.6 · **WooCommerce :** requis
 - **Éditeur :** [G2RD Agence Web](https://g2rd.fr/)
 
