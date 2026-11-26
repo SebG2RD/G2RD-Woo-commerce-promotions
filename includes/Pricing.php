@@ -277,7 +277,7 @@ final class Pricing {
             $net=(float)($line['line_subtotal']??0)+($incl?(float)($line['line_subtotal_tax']??0):0);
             $saving+=max(0,$base-$net);
         }
-        if($saving>0) echo '<tr class="g2rd-promotion-savings"><th>'.esc_html__('Économie G2RD (déjà déduite)','g2rd-woocommerce-promotions').'</th><td>'.wp_kses_post(wc_price($saving)).'</td></tr>';
+        if($saving>0) echo '<tr class="g2rd-promotion-savings"><th>'.esc_html__('Total Savings','g2rd-woocommerce-promotions').'</th><td>'.wp_kses_post(wc_price($saving)).'</td></tr>';
     }
     /** Published parent product IDs that may match: OR between rules, AND between label and category. */
     public function candidate_ids(array $campaigns): array {

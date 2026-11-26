@@ -9,6 +9,7 @@ final class Orders {
         add_action('woocommerce_checkout_create_order_line_item',[$this,'classic_line'],20,4);
         add_action('woocommerce_store_api_checkout_update_order_from_request',[$this,'blocks_order'],100,2);
         add_filter('woocommerce_get_order_item_totals',[$this,'totals'],30,3);
+        add_filter('woocommerce_order_item_display_meta_key',[$this,'display_key'],10,2);
         add_action('wpo_wcpdf_after_order_details',[$this,'pdf_summary'],20,2);
         add_filter('wpo_wcpdf_raw_order_totals',[$this,'pdf_totals'],20,2);
     }
@@ -61,13 +62,24 @@ final class Orders {
         }
     }
 
+    /** Stored keys stay stable (old orders included); only the label shown on pages, emails and PDFs changes. */
+    public function display_key($key,$meta) {
+        $labels=['Promotion G2RD'=>__('Promotion','g2rd-woocommerce-promotions'),'Économie G2RD HT'=>__('Savings (excl. VAT)','g2rd-woocommerce-promotions')];
+        return is_object($meta) && isset($meta->key) && isset($labels[$meta->key]) ? $labels[$meta->key] : $key;
+    }
+    /** Rows for the WP Overnight Premium Templates "Custom function" block (see includes/functions.php). */
+    public static function pdf_rows($order): array {
+        if(!$order instanceof \WC_Order) return [];
+        $sum=self::savings($order,get_option('woocommerce_tax_display_cart','excl')==='incl');
+        return $sum>0?[['label'=>__('Total Savings','g2rd-woocommerce-promotions'),'value'=>wc_price($sum,['currency'=>$order->get_currency()])]]:[];
+    }
     public static function savings($order,bool $incl): float {
         $sum=0.0; foreach($order->get_items('line_item') as $item) { $q=$item->get_meta(self::META,true); if(is_array($q)) $sum+=(float)($q[$incl?'saving_gross':'saving_net']??0); } return $sum;
     }
     public function totals($rows,$order,$tax_display) {
         $sum=self::savings($order,$tax_display==='incl'); if($sum<=0) return $rows;
         $out=[]; foreach($rows as $key=>$row) {
-            if($key==='order_total') $out['g2rd_promotion_savings']=['label'=>__('Économie G2RD (déjà déduite) :','g2rd-woocommerce-promotions'),'value'=>wc_price($sum,['currency'=>$order->get_currency()])];
+            if($key==='order_total') $out['g2rd_promotion_savings']=['label'=>__('Total Savings:','g2rd-woocommerce-promotions'),'value'=>wc_price($sum,['currency'=>$order->get_currency()])];
             $out[$key]=$row;
         } return $out;
     }
@@ -80,6 +92,6 @@ final class Orders {
         // The item metadata is rendered by default. Add an informational total only
         // if the invoice template does not use our Woo totals row (opt-in).
         if(!apply_filters('g2rd_promotions_pdf_summary',false,$order)) return;
-        $sum=self::savings($order,$order->get_prices_include_tax()); if($sum>0) echo '<p>'.esc_html__('Économie G2RD (déjà déduite) :','g2rd-woocommerce-promotions').' '.wp_kses_post(wc_price($sum,['currency'=>$order->get_currency()])).'</p>';
+        $sum=self::savings($order,$order->get_prices_include_tax()); if($sum>0) echo '<p>'.esc_html__('Total Savings:','g2rd-woocommerce-promotions').' '.wp_kses_post(wc_price($sum,['currency'=>$order->get_currency()])).'</p>';
     }
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.2 — libellés client et facture PDF
+
+- Panier, commande, e-mails et factures : « Total Savings » remplace « Économie G2RD (déjà déduite) ».
+- Lignes de commande : « Promotion » et « Savings (excl. VAT) » remplacent « Promotion G2RD » et « Économie G2RD HT ». Les clés enregistrées ne changent pas : les anciennes commandes affichent aussi les nouveaux libellés.
+- Facture WP Overnight Premium Templates : fonction `g2rd_promotions_total_savings` pour un bloc « Custom function » dans les lignes de totaux (le Customizer ne reprend pas les totaux WooCommerce).
+- TVA inchangée : elle est déjà calculée sur le prix remisé ; la ligne Total Savings est informative.
+
 ## 1.1.1 — corrections de l’éditeur de campagne
 
 - Labels et catégories : cases à cocher avec recherche au lieu de listes à sélection multiple (Ctrl inutile, sélection visible). Concerne aussi les exclusions et les Paramètres.

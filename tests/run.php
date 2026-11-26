@@ -69,9 +69,9 @@ namespace {
     class MockCart {public array $coupons=[];function __construct(public array $cart_contents){}function get_cart(){return $this->cart_contents;}function get_coupons(){return $this->coupons;}}
 }
 namespace G2RD\Promotions {
-    if(!defined('G2RD_PROMO_VERSION')) define('G2RD_PROMO_VERSION','1.1.1');
+    if(!defined('G2RD_PROMO_VERSION')) define('G2RD_PROMO_VERSION','1.1.2');
     if(!defined('G2RD_PROMO_FILE')) define('G2RD_PROMO_FILE',__DIR__.'/../g2rd-woocommerce-promotions.php');
-    require_once __DIR__.'/../includes/Rules.php';require_once __DIR__.'/../includes/Repository.php';require_once __DIR__.'/../includes/Pricing.php';require_once __DIR__.'/../includes/Orders.php';require_once __DIR__.'/../includes/Updater.php';
+    require_once __DIR__.'/../includes/Rules.php';require_once __DIR__.'/../includes/Repository.php';require_once __DIR__.'/../includes/Pricing.php';require_once __DIR__.'/../includes/Orders.php';require_once __DIR__.'/../includes/functions.php';require_once __DIR__.'/../includes/Updater.php';
     $tests=0;$fail=0;$GLOBALS['transients']=[];
     function expect($actual,$expected,string $label):void {global $tests,$fail;$tests++;if($actual!==$expected){$fail++;echo "FAIL $label: ".var_export($actual,true)." expected ".var_export($expected,true)."\n";}else echo "PASS $label\n";}
     /** One rule of a campaign. */
@@ -121,7 +121,10 @@ namespace G2RD\Promotions {
     $cart->coupons=['vip'=>$individual];$engine->store_coupon_errors($errors,$cart);expect($errors->codes,['g2rd_promo_coupon_conflict'],'checkout error for individual-use coupon');$cart->coupons=[];
     $orders=new Orders($engine);$item=new \WC_Order_Item_Product(2,48,9.6);$order=new \WC_Order([$item]);$orders->classic_line($item,'a',$cart->cart_contents['a'],$order);
     expect($item->meta[Orders::META]['saving_net'],12.0,'order net savings');expect($item->meta[Orders::META]['saving_gross'],14.4,'order gross savings');expect($item->meta[Orders::META]['price'],24.0,'order price snapshot');
-    $totals=$orders->totals(['order_total'=>['label'=>'Total','value'=>'57.60']],$order,'incl');expect($totals['order_total']['value'],'57.60','no second discount on total');expect(isset($totals['g2rd_promotion_savings']),true,'informational savings row');
+    $totals=$orders->totals(['order_total'=>['label'=>'Total','value'=>'57.60']],$order,'incl');expect($totals['order_total']['value'],'57.60','no second discount on total');expect(isset($totals['g2rd_promotion_savings']),true,'informational savings row');expect($totals['g2rd_promotion_savings']['label'],'Total Savings:','savings row label');
+    expect([$orders->display_key('Promotion G2RD',(object)['key'=>'Promotion G2RD']),$orders->display_key('Économie G2RD HT',(object)['key'=>'Économie G2RD HT']),$orders->display_key('Size',(object)['key'=>'Size'])],['Promotion','Savings (excl. VAT)','Size'],'item meta labels, other keys untouched');
+    $GLOBALS['opts']['woocommerce_tax_display_cart']='incl';expect(\g2rd_promotions_total_savings((object)['order'=>$order]),[['label'=>'Total Savings','value'=>'14.40 €']],'PDF custom function row incl. VAT');
+    $GLOBALS['opts']['woocommerce_tax_display_cart']='excl';expect(\g2rd_promotions_total_savings((object)['order'=>$order])[0]['value'],'12.00 €','PDF custom function row excl. VAT');expect([\g2rd_promotions_total_savings(null),\g2rd_promotions_total_savings((object)['order'=>new \WC_Order([])])],[[],[]],'PDF custom function empty without savings');unset($GLOBALS['opts']['woocommerce_tax_display_cart']);
     $rr->setValue($repo,[]);$engine->reset_cart($cart);$engine->apply_cart($cart);expect($cart->cart_contents['a']['data']->get_price(),'30','expired rule restores price');expect(isset($cart->cart_contents['a']['g2rd_promotion']),false,'expired rule clears cart metadata');expect(Orders::savings($order,true),14.4,'historical order savings preserved');
     expect(Rules::price(29.99,r(['value'=>30]),2),20.99,'currency rounding');expect(Rules::price(10,r(['value'=>100]),2),0.0,'100 percent');
 

@@ -2,7 +2,7 @@
 
 Campagnes promotionnelles WooCommerce par label, catégorie et profil client (visiteur, particulier, Wholesale).
 
-- **Version :** 1.1.1 (sélecteurs de labels et catégories, interrupteur promotions existantes)
+- **Version :** 1.1.2 (libellés Total Savings, ligne de facture PDF)
 - **PHP :** ≥ 8.1 · **WordPress :** ≥ 6.6 · **WooCommerce :** requis
 - **Éditeur :** [G2RD Agence Web](https://g2rd.fr/)
 
