@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1 — corrections de l’éditeur de campagne
+
+- Labels et catégories : cases à cocher avec recherche au lieu de listes à sélection multiple (Ctrl inutile, sélection visible). Concerne aussi les exclusions et les Paramètres.
+- Articles déjà en promotion : un seul interrupteur « Exclure » (activé par défaut). Les deux boutons radio étaient déformés par le style des champs et ne réagissaient pas visuellement.
+
 ## 1.1.0 — conformité au cahier des charges Drakkar
 
 - Plusieurs règles par campagne ; types pourcentage, montant déduit et prix fixe, calculés sur le prix normal.

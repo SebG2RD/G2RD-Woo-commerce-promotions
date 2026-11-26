@@ -71,11 +71,11 @@
   root.addEventListener('input', (event) => {
     const input = event.target;
     if (!(input instanceof HTMLInputElement) || !input.dataset.target) return;
-    const select = document.getElementById(input.dataset.target);
-    if (!select) return;
+    const box = document.getElementById(input.dataset.target);
+    if (!box) return;
     const term = input.value.toLocaleLowerCase();
-    [...select.options].forEach((opt) => {
-      opt.hidden = !opt.selected && !opt.textContent.toLocaleLowerCase().includes(term);
+    box.querySelectorAll('label').forEach((item) => {
+      item.hidden = !item.querySelector('input')?.checked && !item.textContent.toLocaleLowerCase().includes(term);
     });
   });
 

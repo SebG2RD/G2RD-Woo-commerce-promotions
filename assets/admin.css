@@ -320,8 +320,19 @@ body.g2rd-promo-screen #wpcontent {
 }
 .g2rd-promo-field input:not([type=checkbox]),
 .g2rd-promo-field select { width: 100%; }
-.g2rd-promo select[multiple] { min-height: 110px; padding: 6px; }
-.g2rd-promo select[multiple] option { padding: 5px 8px; border-radius: 4px; }
+.g2rd-promo-terms {
+	max-height: 190px;
+	overflow-y: auto;
+	background: var(--g2rd-well);
+	border: 1px solid var(--g2rd-line-2);
+	border-radius: 10px;
+	padding: 6px;
+}
+.g2rd-promo-terms label { display: flex; gap: 8px; align-items: center; padding: 5px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.g2rd-promo-terms label[hidden] { display: none; }
+.g2rd-promo-terms label:hover { background: var(--g2rd-line-2); }
+.g2rd-promo-terms label:has(input:checked) { background: var(--g2rd-ink); color: var(--g2rd-on-dark); font-weight: 600; }
+.g2rd-promo-terms input { margin: 0; }
 .g2rd-promo-check { display: flex; gap: 8px; align-items: center; margin: 6px 0 10px; font-size: 14px; }
 .g2rd-promo-check input { margin: 0; }
 

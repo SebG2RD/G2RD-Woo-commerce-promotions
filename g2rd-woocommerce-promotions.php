@@ -2,7 +2,7 @@
 /**
  * Plugin Name: G2RD WooCommerce Promotions
  * Description: Campagnes promotionnelles par label, catégorie et profil client, intégrées aux prix WooCommerce.
- * Version: 1.1.0
+ * Version: 1.1.1
  * Requires at least: 6.6
  * Requires PHP: 8.1
  * Requires Plugins: woocommerce
@@ -14,7 +14,7 @@
  */
 namespace G2RD\Promotions;
 if (!defined('ABSPATH')) { exit; }
-define('G2RD_PROMO_VERSION', '1.1.0');
+define('G2RD_PROMO_VERSION', '1.1.1');
 define('G2RD_PROMO_FILE', __FILE__);
 require_once __DIR__.'/includes/Rules.php';
 require_once __DIR__.'/includes/Repository.php';
